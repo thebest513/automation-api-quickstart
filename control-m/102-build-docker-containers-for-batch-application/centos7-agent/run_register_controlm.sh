@@ -1,22 +1,24 @@
 #!/bin/bash
+
 #use agent's java for provision setup
-PATH=$PATH:~/ctm/JRE_1.8/bin
+PATH=$PATH:~/ctm/JRE_1.8_222/bin
 CTM_ENV=endpoint
-#CTM_SERVER=[CTM_HOST]
-#CTM_HOSTGROUP=app0
+#CTM_SERVER=CTM
+#CTM_HOSTGROUP=app1
 #CTM_AGENT_PORT=7020
-ALIAS=$(hostname):$CTM_AGENT_PORT
+# provision fails when alias like "9-19:" so alias must ends with non-special char
+ALIAS=$(hostname):${CTM_AGENT_PORT}docker
 
-#cd
-#source .bash_profile
+cd
+source .bash_profile
 
-echo run and register controlm agent [$ALIAS] with controlm [$CTM_SERVER], environment [$CTM_ENV] 
+echo run and register controlm agent [$ALIAS] with controlm [$CTM_SERVER], environment [$CTM_ENV]
 ctm provision setup $CTM_SERVER $ALIAS $CTM_AGENT_PORT -e $CTM_ENV
 
 echo add or create a controlm hostgroup [$CTM_HOSTGROUP] with controlm agent [$ALIAS]
 ctm config server:hostgroup:agent::add $CTM_SERVER $CTM_HOSTGROUP $ALIAS -e $CTM_ENV
 
-# loop forever
+#loop forever
 while true; do echo x && sleep 60; done
 
 exit 0

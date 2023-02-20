@@ -3,11 +3,12 @@
 #------------------------------------
 
 FROM centos:7
-MAINTAINER Gal Gafni Chen <gal_gafnichen@bmc.com>
 
 ARG CTMHOST
+ARG HTTPSPORT
 ARG USER
 ARG PASSWORD
+ARG AGIMG
 
 # install basic packages
 RUN yum -y install unzip \
@@ -26,7 +27,7 @@ RUN yum -y install unzip \
 # install ctm-automation-api kit
         && mkdir /root/ctm-automation-api \
 	&& cd /root/ctm-automation-api \
-	&& curl --silent -k -O https://$CTMHOST:8443/automation-api/ctm-cli.tgz \
+	&& curl --silent -k -O https://$CTMHOST:$HTTPSPORT/automation-api/ctm-cli.tgz \
 	&& npm install -g ctm-cli.tgz \
 	&& ctm -v \
 	&& yum clean all \
@@ -38,13 +39,13 @@ USER controlm
 COPY run_register_controlm.sh /tmp
 COPY decommission_controlm.sh /tmp
 
-RUN ctm env add endpoint https://$CTMHOST:8443/automation-api $USER $PASSWORD \
+RUN ctm env add endpoint https://$CTMHOST:$HTTPSPORT/automation-api $USER $PASSWORD \
 	&& ctm env set endpoint \
 # install java 8 
 	&& sudo yum -y install java-1.8.0-openjdk \ 
 # provision controlm agent image
 	&& cd \
-	&& ctm provision image Agent_18.Linux \
+	&& ctm provision image $AGIMG \
 # enable controlm agent utilities
 	&& echo "source /home/controlm/.bash_profile" >> /home/controlm/.bashrc \
         && cp /tmp/run_register_controlm.sh /home/controlm \
