@@ -15,8 +15,9 @@ RUN yum -y install unzip \
 	&& yum -y install sudo \
 	&& yum -y install net-tools \ 
 	&& yum -y install which \
+    && yum -y install psmisc \
 # install nodejs
-        && curl -k --silent --location https://rpm.nodesource.com/setup_12.x | bash - \
+    && curl -k --silent --location https://rpm.nodesource.com/setup_12.x | bash - \
 	&& yum -y install nodejs \
 	&& node -v \
 	&& npm -v \
@@ -25,13 +26,13 @@ RUN yum -y install unzip \
 	&& echo 'root ALL=(ALL) ALL' >> /etc/sudoers \
 	&& echo 'controlm ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
 # install ctm-automation-api kit
-        && mkdir /root/ctm-automation-api \
+    && mkdir /root/ctm-automation-api \
 	&& cd /root/ctm-automation-api \
 	&& curl --silent -k -O https://$CTMHOST:$HTTPSPORT/automation-api/ctm-cli.tgz \
 	&& npm install -g ctm-cli.tgz \
 	&& ctm -v \
 	&& yum clean all \
-        && rm -rf /var/cache/yum
+    && rm -rf /var/cache/yum
 
 # add controlm endpoint
 USER controlm
@@ -48,14 +49,14 @@ RUN ctm env add endpoint https://$CTMHOST:$HTTPSPORT/automation-api $USER $PASSW
 	&& ctm provision image $AGIMG \
 # enable controlm agent utilities
 	&& echo "source /home/controlm/.bash_profile" >> /home/controlm/.bashrc \
-        && cp /tmp/run_register_controlm.sh /home/controlm \
+    && cp /tmp/run_register_controlm.sh /home/controlm \
 	&& cp /tmp/decommission_controlm.sh /home/controlm \
 	&& chmod +x run_register_controlm.sh \
 	&& chmod +x decommission_controlm.sh \
 # uninstall java 8 
-	&& sudo yum -y autoremove java-1.8.0-openjdk \
+#	&& sudo yum -y autoremove java-1.8.0-openjdk \
 	&& sudo yum clean all \
-        && sudo rm -rf /var/cache/yum
+    && sudo rm -rf /var/cache/yum
 
 EXPOSE 7000-8000
 

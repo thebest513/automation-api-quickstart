@@ -1,13 +1,13 @@
 #!/bin/bash
 
 #use agent's java for provision setup
-PATH=$PATH:~/ctm/JRE_1.8_222/bin
+#PATH=$PATH:~/ctm/JRE_1.8_222/bin
 CTM_ENV=endpoint
 #CTM_SERVER=CTM
 #CTM_HOSTGROUP=app1
 #CTM_AGENT_PORT=7020
 # provision fails when alias like "9-19:" so alias must ends with non-special char
-ALIAS=$(hostname):${CTM_AGENT_PORT}docker
+ALIAS=$HOSTNAME:${CTM_AGENT_PORT}docker
 
 cd
 source .bash_profile
