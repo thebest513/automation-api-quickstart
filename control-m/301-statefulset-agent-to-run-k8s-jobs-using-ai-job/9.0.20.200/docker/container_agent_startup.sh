@@ -1,17 +1,14 @@
 #!/bin/bash 
 
 echo "parameters: $argv"
-AG_NODE_ID=`hostname`
-PERSISTENT_VOL=$1/$AG_NODE_ID
-AAPI_USER=$3
-AAPI_END_POINT=$2
-AAPI_PASS=$4
-CTM_SERVER_NAME=$5
+AG_NODE_ID=$HOSTNAME
+PERSISTENT_VOL=$PERSISTENT_VOL/$AG_NODE_ID
+CTM_SERVER_NAME=$CTM_SERVER_NAME
 FOLDERS_EXISTS=false
 AGENT_REGISTERED=false
-AGENT_HOSTGROUP_NAME=$6
+AGENT_HOSTGROUP_NAME=$AGENT_HOSTGROUP_NAME
 export CONTROLM=/home/controlm/ctm
-agentName=$(hostname)
+agentName=$HOSTNAME
 
 # create if needed, and map agent persistent data folders
 echo 'mapping persistent volume'
@@ -52,8 +49,7 @@ ln -s $PERSISTENT_VOL/cm        $CONTROLM/cm
 
 
 # echo using new AAPI configuration, not the default build time configuration
-ctm env add ctm_env $AAPI_END_POINT $AAPI_USER $AAPI_PASS
-ctm env set ctm_env
+ctm env set myenv
 
 # check if Agent exists in the Control-M Server
 if $FOLDERS_EXISTS ; then
@@ -65,15 +61,17 @@ if $FOLDERS_EXISTS ; then
 fi
 
 if $FOLDERS_EXISTS && $AGENT_REGISTERED ; then
-               # start the Agent
-               echo 'starting the Agent'
-               start-ag -u controlm -p ALL
-               else
-               echo 'configuring and registering the agent'
-               ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID 7006 -f agent_configuration.json
-		
+        # start the Agent
+        echo 'starting the Agent'
+        start-ag -u controlm -p ALL
+else
+        echo 'configuring and registering the agent'
+        ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID 7006 -f agent_configuration.json
+	sleep 300
+	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID LOGKEEPDAYS 14
+	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID OUTPUT_NAME JOBNAME
+	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID I18N CJK
 fi
-
 
 echo 'checking Agent communication with Control-M Server'
 ag_diag_comm
@@ -81,24 +79,5 @@ ag_diag_comm
 echo 'adding the Agent to Host Group'
 ctm config server:hostgroup:agent::add $CTM_SERVER_NAME $AGENT_HOSTGROUP_NAME $AG_NODE_ID
 
-
-echo 'deploying agent to KUBERNETES ai job type'
-x=1
-ctm deploy ai:jobtype  $CTM_SERVER_NAME $agentName KUBERNETES | grep "successful" > res.txt
-
-while [ ! -s res.txt ]
-do
-   echo "try $x times"
-   #ctm deploy ai:jobtype  $CTM_SERVER_NAME $agentName KUBERNETES
-   ctm deploy ai:jobtype  $CTM_SERVER_NAME $agentName KUBERNETES | grep "successful" > res.txt
-	x=$(( $x + 1 ))
-   sleep 20
-done
-
-echo 'deploying agent to KUBERNETES ai job type successed'
-rm res.txt
-
 echo 'running in agent container and keeping it alive'
 ./ctmhost_keepalive.sh
-
-

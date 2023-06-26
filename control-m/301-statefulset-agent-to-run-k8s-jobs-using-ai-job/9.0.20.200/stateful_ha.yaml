@@ -7,7 +7,7 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -16,7 +16,7 @@ metadata:
     type: stateful-service-ctmag-srv
   name: ha-statefulset-agent
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       type: stateful-service-ctmag-srv
@@ -30,20 +30,14 @@ spec:
       - env:
         - name: PERSISTENT_VOL
           value: /home/controlm/persistent_folder
-        - name: AAPI_END_POINT
-          value: https://<END_POINT_URL>/automation-api
-        - name: AAPI_USER
-          value: <AAPI_USER_NAME>
-        - name: AAPI_PASS
-          value: <AAPI_PASSWORD>
         - name: CTM_SERVER_NAME
-          value: <CTM_NAME>
+          value: CTM
         - name: PERM_HOSTS
-          value: <HOST_NAMES>
+          value: 9-19
         - name: AGENT_HOSTGROUP_NAME
-          value: <AGENT_HOSTGROUP_NAME>
-        image: <IMAGE_NAME>
-        imagePullPolicy: Always
+          value: kube
+        image: ctmag:920200cm
+        imagePullPolicy: IfNotPresent
         name: ctmagent-container
         ports:
         - containerPort: 7006
@@ -52,8 +46,8 @@ spec:
           name: pv-data
       hostAliases:
       - hostnames:
-        - <CTM_SERVER_NAME>
-        ip: <CTM_SERVER_PUBLIC_IP>
+        - 9-19
+        ip: 192.168.206.129
       securityContext:
         fsGroup: 1000
       terminationGracePeriodSeconds: 10

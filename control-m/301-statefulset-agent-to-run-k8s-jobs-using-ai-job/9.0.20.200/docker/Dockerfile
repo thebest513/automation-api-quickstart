@@ -1,10 +1,9 @@
-FROM centos:7 as builder
+FROM centos:7
 
 ARG AAPI_END_POINT
 ARG AAPI_USER
 ARG AAPI_PASS
 ARG AGENT_IMAGE_NAME
-ARG CTM_SERVER_NAME
 
 LABEL Description="This is a Control-M/Agent image that planned to run in K8s env"
 
@@ -20,7 +19,6 @@ RUN  yum -y install wget \
 		&& yum -y install compat-libstdc++-33.x86_64 \
 		&& yum -y install psmisc \
 		&& cd /usr/src \
-
 # install nodejs
 		&& curl --silent --location https://rpm.nodesource.com/setup_14.x | bash - \
 		&& yum -y install nodejs \
@@ -46,27 +44,21 @@ WORKDIR /home/controlm
 # Create AAPI env
 RUN ctm env add myenv $AAPI_END_POINT $AAPI_USER $AAPI_PASS \
 # install java 11
-		&& sudo yum -y install java-11-openjdk \
+	&& sudo yum -y install java-11-openjdk \
         && java -version \
 # install agent, setup will be done during statup
-		&& ctm provision image $AGENT_IMAGE_NAME && echo installation ended successfully \
-        && ctm env del myenv \
-
+	&& ctm provision image $AGENT_IMAGE_NAME && echo installation ended successfully \
 # Persistent connection : internal AR keep-alive
-		&& echo "AR_PING_TO_SERVER_IND Y" >> /home/controlm/ctm/data/CONFIG.dat \
-		&& echo "AR_PING_TO_SERVER_INTERVAL 30" >> /home/controlm/ctm/data/CONFIG.dat \
-		&& echo "AR_PING_TO_SERVER_TIMEOUT 60" >> /home/controlm/ctm/data/CONFIG.dat \
+	&& echo "AR_PING_TO_SERVER_IND Y" >> /home/controlm/ctm/data/CONFIG.dat \
+	&& echo "AR_PING_TO_SERVER_INTERVAL 30" >> /home/controlm/ctm/data/CONFIG.dat \
+	&& echo "AR_PING_TO_SERVER_TIMEOUT 60" >> /home/controlm/ctm/data/CONFIG.dat \
 # clean and uninstall java 11
-		&& sudo yum -y autoremove java-11-openjdk \
-		&& sudo yum clean all \
-		&& sudo rm -rf /var/cache/yum
-
-# install kubectl
-COPY  install_kubectl.sh .
-RUN ./install_kubectl.sh
+	&& sudo yum -y autoremove java-11-openjdk \
+	&& sudo yum clean all \
+	&& sudo rm -rf /var/cache/yum
 
 RUN echo "DISABLE_CM_SHUTDOWN Y" >> /home/controlm/ctm/data/CONFIG.dat \
-                && touch /home/controlm/ctm/data/DISABLE_CM_SHUTDOWN_Y.cfg
+        && touch /home/controlm/ctm/data/DISABLE_CM_SHUTDOWN_Y.cfg
 
 # entry point script
 COPY  container_agent_startup.sh .
@@ -75,13 +67,9 @@ COPY agent_configuration.json .
 # ctmhostkeep alive script 
 COPY ctmhost_keepalive.sh .
 
+RUN sudo chmod +x container_agent_startup.sh \
+	&& sudo chmod +x ctmhost_keepalive.sh
+
 EXPOSE 7006
 
-
-
-USER controlm
-WORKDIR /home/controlm
-
-ENTRYPOINT /bin/bash -c "/home/controlm/container_agent_startup.sh $PERSISTENT_VOL $AAPI_END_POINT $AAPI_USER $AAPI_PASS $CTM_SERVER_NAME $AGENT_HOSTGROUP_NAME"
-
-
+ENTRYPOINT /bin/bash -c "/home/controlm/container_agent_startup.sh"

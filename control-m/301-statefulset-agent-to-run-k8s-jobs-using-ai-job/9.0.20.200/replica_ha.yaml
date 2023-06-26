@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  labels:
+    type: replica-service-ctmag-srv
+  name: ha-replicaset-agent
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      type: replica-service-ctmag-srv
+  template:
+    metadata:
+      labels:
+        type: replica-service-ctmag-srv
+    spec:
+      containers:
+      - env:
+        - name: CTM_SERVER_NAME
+          value: CTM
+        - name: PERM_HOSTS
+          value: 9-19
+        - name: AGENT_HOSTGROUP_NAME
+          value: kubere
+        image: ctmag:920200cm
+        imagePullPolicy: IfNotPresent
+        name: ctmagent-container
+        ports:
+        - containerPort: 7006
+      hostAliases:
+      - hostnames:
+        - 9-19
+        ip: 192.168.206.129
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 10
