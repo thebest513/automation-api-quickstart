@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ctmcontainer-statefulset
+  namespace: controlm
+  labels:
+    type: stateful-ctmagent
+    app: ctm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      type: stateful-ctmagent
+      app: ctm
+  serviceName: ctmag
+  template:
+    metadata:
+      labels:
+        type: stateful-ctmagent
+        app: ctm
+    spec:
+      containers:
+      - name: ctmagent
+        image: 	docker-registry.default.svc:5000/controlm/uobctmag:9.0.20.200.sfs
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /home/ctmadm/persistent_folder
+          name: pv-data        
+        env:
+        - name: PERSISTENT_VOL
+          value: /home/ctmadm/persistent_folder
+        - name: EM_SERVER
+          value: "dba-ctm.com"
+        - name: EM_PORT
+          value: "8443"
+        - name: AAPI_USER
+          valueFrom:
+            secretKeyRef:
+              name: ctmagent-secret
+              key: em-user
+        - name: AAPI_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: ctmagent-secret
+              key: em-password 
+        - name: CTM_SERVER
+          value: CTM_255 
+        #this is host group name
+        - name: CTM_HOSTGROUP
+          value: DEMO_S_HOSTGRP 
+        - name: CTM_ENV
+          value: TEST
+      #This is for hostname resolution purpose, if DNS configured not required this specifiction
+      hostAliases:
+      - hostnames:
+        - ip-172-31-10-225.us-east-2.compute.internal 
+        ip: "3.145.53.14"
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: pv-data
+        persistentVolumeClaim:
+          claimName: uobpvc

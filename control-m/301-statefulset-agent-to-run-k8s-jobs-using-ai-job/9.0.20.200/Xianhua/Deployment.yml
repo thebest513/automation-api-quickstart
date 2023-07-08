@@ -1,0 +1,50 @@
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ctmcontainer-deployment
+      namespae: controlm
+      labels:
+        type: deployment-ctmagent
+        app: ctm
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          type: deployment-ctmagent
+          app: ctm
+      template:
+        metadata:
+          labels:
+            type: deployment-ctmagent
+            app: ctm
+        spec:
+          containers:
+          - name: ctmagent
+            image: 	docker-registry.default.svc:5000/controlm/uobctmag:9.0.20.200.dep
+            imagePullPolicy: Always
+            env:
+            - name: AAPI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ctmagent-secret
+                  key: em-user
+            - name: AAPI_PASSWORD
+              valueFrom: 
+                secretKeyRef:
+                  name: ctmagent-secret
+                  key: em-password
+            - name: EM_SERVER
+              value: "dba-ctm.com"
+            - name: EM_PORT
+              value: "8443"
+            - name: CTM_SERVER
+              value: CTM_255     
+            - name: CTM_HOSTGROUP
+              value: DEMO_D_HOSTGRP
+            - name: CTM_ENV
+              value: TEST
+          #This is for hostname resolution purpose, if DNS configured not required this specifiction
+          hostAliases:
+          - hostnames:
+            - ip-172-31-10-225.us-east-2.compute.internal 
+            ip: "3.145.53.14"
