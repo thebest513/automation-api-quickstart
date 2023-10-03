@@ -3,21 +3,34 @@
 echo "parameters: $argv"
 AG_NODE_ID=$HOSTNAME
 PERSISTENT_VOL=$PERSISTENT_VOL/$AG_NODE_ID
+AAPI_END_POINT=$AAPI_END_POINT
 CTM_SERVER_NAME=$CTM_SERVER_NAME
+AGENT_HOSTGROUP_NAME=$AGENT_HOSTGROUP_NAME
 FOLDERS_EXISTS=false
 AGENT_REGISTERED=false
-AGENT_HOSTGROUP_NAME=$AGENT_HOSTGROUP_NAME
-export CONTROLM=/home/controlm/ctm
-agentName=$HOSTNAME
+OSACCOUNT="ctmag"
+HOMEDIR="/home/ctmag"
+export CONTROLM=$HOMEDIR/ctm
+
+function sigusr1Handler() {
+    $HOMEDIR/decommission_controlm.sh
+    return 0
+}
+function sigtermHandler() {
+    $HOMEDIR/decommission_controlm.sh
+    return 0
+}
 
 # create if needed, and map agent persistent data folders
 echo 'mapping persistent volume'
-cd /home/controlm
+cd $HOMEDIR
 
-sudo echo PATH="${PATH}:/home/controlm/bmcjava/bmcjava-V3/bin:/home/controlm/ctm/scripts:/home/controlm/ctm/exe">>~/.bash_profile
-sudo echo export PATH>>~/.bash_profile
+echo PATH="${PATH}:$HOMEDIR/bmcjava/bmcjava-V3/bin:$HOMEDIR/ctm/scripts:$HOMEDIR/ctm/exe">>~/.bash_profile
+echo export PATH>>~/.bash_profile
 
 source ~/.bash_profile
+trap 'sigusr1Handler' SIGUSR1
+trap 'sigtermHandler' SIGTERM
 
 if [ ! -d $PERSISTENT_VOL/pid ];
 then
@@ -49,6 +62,7 @@ ln -s $PERSISTENT_VOL/cm        $CONTROLM/cm
 
 
 # echo using new AAPI configuration, not the default build time configuration
+ctm env update myenv endPoint $AAPI_END_POINT
 ctm env set myenv
 
 # check if Agent exists in the Control-M Server
@@ -63,14 +77,13 @@ fi
 if $FOLDERS_EXISTS && $AGENT_REGISTERED ; then
         # start the Agent
         echo 'starting the Agent'
-        start-ag -u controlm -p ALL
+        start-ag -u $OSACCOUNT -p ALL
 else
         echo 'configuring and registering the agent'
-        ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID 7006 -f agent_configuration.json
-	sleep 300
-	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID LOGKEEPDAYS 14
-	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID OUTPUT_NAME JOBNAME
-	ctm config server:agent:param::set $CTM_SERVER_NAME $AG_NODE_ID I18N CJK
+	jq -n --argjson connectionInitiator '"AgentToServer"' --argjson serverHostName '"'"$SERVER_HOST"'"' --argjson tag '"'"$AGENT_TOKEN_TAG"'"' \
+           '{connectionInitiator: $connectionInitiator, serverHostName: $serverHostName, tag: $tag} | with_entries(select(.value != null and .value != ""))' > agent_configuration.json
+        cat agent_configuration.json
+        ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID $AGENT_PORT -f agent_configuration.json
 fi
 
 echo 'checking Agent communication with Control-M Server'

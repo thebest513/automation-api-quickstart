@@ -2,35 +2,59 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    type: replica-service-ctmag-srv
-  name: ha-replicaset-agent
+    type: deploy-ctmag-alma8
+  name: deploy-ctmag-alma8
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
-      type: replica-service-ctmag-srv
+      type: deploy-ctmag-alma8
   template:
     metadata:
       labels:
-        type: replica-service-ctmag-srv
+        type: deploy-ctmag-alma8
     spec:
       containers:
       - env:
+        - name: AAPI_END_POINT
+          value: https://winctm204c16g:8443/automation-api
+        - name: AGENT_PORT
+          value: "7006"
+        - name: SERVER_HOST
+          value: "winctm204c16g-1"
         - name: CTM_SERVER_NAME
           value: CTM
         - name: PERM_HOSTS
-          value: 9-19
+          value: winctm204c16g
         - name: AGENT_HOSTGROUP_NAME
-          value: kubere
-        image: ctmag:920200cm
+          value: kube-alma8
+        image: ctmag:alma8
         imagePullPolicy: IfNotPresent
         name: ctmagent-container
-        ports:
-        - containerPort: 7006
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/home/ctmag/decommission_controlm.sh"]
+      #This is for hostname resolution purpose, if DNS configured not required this specifiction
       hostAliases:
       - hostnames:
-        - 9-19
-        ip: 192.168.206.129
+        - stlap0212wlas
+        ip: "172.24.72.112"
+      - hostnames:
+        - stlap0213wlas
+        ip: "172.24.72.109"
+      - hostnames:
+        - stlap0214wlas
+        ip: "172.24.72.115"
+      - hostnames:
+        - stkao0215wlas
+        ip: "172.24.72.116"
+      - hostnames:
+        - winctm204c16g
+        ip: "103.124.73.140" 
+      - hostnames:
+        - winctm204c16g-1
+        ip: "103.124.73.140" 
       securityContext:
         fsGroup: 1000
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 30
