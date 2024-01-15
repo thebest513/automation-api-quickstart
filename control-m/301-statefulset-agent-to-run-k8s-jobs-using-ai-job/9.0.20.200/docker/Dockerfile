@@ -18,19 +18,17 @@ WORKDIR /root
 RUN  yum -y update \
 	&& yum -y install wget \
 	&& yum -y install unzip \
-	&& yum -y install sudo \
 	&& yum -y install psmisc  \
 	&& yum -y install net-tools \
 	&& yum -y install bc \
     && yum -y install which \
-	&& yum -y install hostname \
 	&& yum -y install procps \
 	&& yum -y install jq \
 # install libnsl
 	&& wget https://vault.centos.org/centos/8/BaseOS/x86_64/os/Packages/libnsl-2.28-164.el8.x86_64.rpm \
     && rpm -ivh libnsl-2.28-164.el8.x86_64.rpm --force --nodeps \
 # install nodejs
-	&& curl --silent --location https://rpm.nodesource.com/setup_14.x | bash - \
+	&& curl --silent --location https://rpm.nodesource.com/setup_16.x | bash - \
 	&& yum -y install nodejs \
 	&& node -v \
 	&& npm -v \
@@ -45,9 +43,6 @@ RUN  yum -y update \
 # create controlm useruser
 	&& useradd -d $HOMEDIR -s /bin/bash -p $OSPASSWORD -m $OSACCOUNT \
 	&& chmod -R 755 $HOMEDIR \
-# add controlm user and root to soduers list
-	&& echo "root ALL=(ALL) ALL" >> /etc/sudoers \
-	&& echo "$OSACCOUNT ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
 	&& yum clean all \
 	&& rm -rf /var/cache/yum
 
@@ -60,17 +55,13 @@ COPY agent_configuration.json /tmp
 COPY ctmhost_keepalive.sh /tmp
 COPY decommission_controlm.sh /tmp
 
-RUN cp /tmp/container_agent_startup.sh /$HOMEDIR \
-	&& cp /tmp/agent_configuration.json $HOMEDIR \
-	&& cp /tmp/ctmhost_keepalive.sh $HOMEDIR \
-    && cp /tmp/decommission_controlm.sh $HOMEDIR \
-	&& chmod +x container_agent_startup.sh \
-	&& chmod +x ctmhost_keepalive.sh \
-	&& chmod +x decommission_controlm.sh \
+RUN cp /tmp/*.sh /$HOMEDIR \
+	&& chmod +x *.sh \
 # Create AAPI env
 	&& ctm env add myenv $AAPI_END_POINT $AAPI_USER $AAPI_PASS \
 # install agent, setup will be done during statup
 	&& ctm provision image $AGENT_IMAGE_NAME && echo installation ended successfully \
+	&& ctm env delete myenv \
 # Persistent connection : internal AR keep-alive and configure agent parameters
 	&& echo "AR_PING_TO_SERVER_IND Y" >> $HOMEDIR/ctm/data/CONFIG.dat \
 	&& echo "AR_PING_TO_SERVER_INTERVAL 30" >> $HOMEDIR/ctm/data/CONFIG.dat \
@@ -92,13 +83,13 @@ RUN cp /tmp/container_agent_startup.sh /$HOMEDIR \
 	&& rm -fr $HOMEDIR/ctm/toolbox/Usage_Measurement.jar \
     && rm -f $HOMEDIR/ctm/exe_9.0.20.200/jars/sshd-common-2.6.001-CTMAG.jar \
 # enable controlm agent utilities
-	&& echo "source $HOMEDIR/.bash_profile" >> $HOMEDIR/.bashrc
+	&& echo "source $HOMEDIR/.bash_profile" >> $HOMEDIR/.bashrc \
+# install kubectl
+	&& curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+	&& chmod +x kubectl \
+	&& mkdir -p ~/.local/bin \
+	&& mv ./kubectl ~/.local/bin/kubectl \
+	&& echo PATH="$PATH:~/.local/bin/">>~/.bash_profile \
+	&& echo export PATH>>~/.bash_profile
 
-#USER root
-#RUN yum -y autoremove java-11-openjdk \
-#	&& yum clean all \
-#	&& rm -rf /var/cache/yum
-		
-#USER $OSACCOUNT
-#WORKDIR $HOMEDIR
 CMD ["./container_agent_startup.sh"]
