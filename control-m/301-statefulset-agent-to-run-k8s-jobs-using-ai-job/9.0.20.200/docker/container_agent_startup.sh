@@ -4,8 +4,12 @@ echo "parameters: $argv"
 AG_NODE_ID=$HOSTNAME
 PERSISTENT_VOL=$PERSISTENT_VOL/$AG_NODE_ID
 AAPI_END_POINT=$AAPI_END_POINT
+AAPI_TOKEN=$AAPI_TOKEN
+AAPI_USER=$AAPI_USER
+AAPI_PSWD=$AAPI_PSWD
 CTM_SERVER_NAME=$CTM_SERVER_NAME
 AGENT_HOSTGROUP_NAME=$AGENT_HOSTGROUP_NAME
+AGENT_TAG=$AGENT_TAG
 FOLDERS_EXISTS=false
 AGENT_REGISTERED=false
 OSACCOUNT="ctmag"
@@ -62,7 +66,10 @@ ln -s $PERSISTENT_VOL/cm        $CONTROLM/cm
 
 
 # echo using new AAPI configuration, not the default build time configuration
-ctm env update myenv endPoint $AAPI_END_POINT
+if $AAPI_PSWD ; then
+        ctm env add myenv $AAPI_END_POINT $AAPI_USER $AAPI_PSWD
+if $AAPI_TOKEN ; then
+        ctm env add myenv $AAPI_END_POINT $AAPI_TOKEN
 ctm env set myenv
 
 # check if Agent exists in the Control-M Server
@@ -78,9 +85,9 @@ if $FOLDERS_EXISTS && $AGENT_REGISTERED ; then
         # start the Agent
         echo 'starting the Agent'
         start-ag -u $OSACCOUNT -p ALL
-else
+else    # configuring and registering the agent
         echo 'configuring and registering the agent'
-	jq -n --argjson connectionInitiator '"AgentToServer"' --argjson serverHostName '"'"$SERVER_HOST"'"' --argjson tag '"'"$AGENT_TOKEN_TAG"'"' \
+	jq -n --argjson connectionInitiator '"AgentToServer"' --argjson serverHostName '"'"$SERVER_HOST"'"' --argjson tag '"'"$AGENT_TAG"'"' \
            '{connectionInitiator: $connectionInitiator, serverHostName: $serverHostName, tag: $tag} | with_entries(select(.value != null and .value != ""))' > agent_configuration.json
         cat agent_configuration.json
         ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID $AGENT_PORT -f agent_configuration.json
@@ -89,8 +96,28 @@ fi
 echo 'checking Agent communication with Control-M Server'
 ag_diag_comm
 
+# adding the Agent to Host Group
 echo 'adding the Agent to Host Group'
-ctm config server:hostgroup:agent::add $CTM_SERVER_NAME $AGENT_HOSTGROUP_NAME $AG_NODE_ID
+jq -n --argjson tag '"'"$AGENT_TAG"'"' '{tag: $tag} | with_entries(select(.value != null and .value != ""))' > agent_hostgroup.json
+cat agent_hostgroup.json
+ctm config server:hostgroup:agent::add $CTM_SERVER_NAME $AGENT_HOSTGROUP_NAME $AG_NODE_ID -f agent_hostgroup.json
 
+# deploying agent to KUBERNETES ai job type
+echo 'deploying agent to KUBERNETES ai job type'
+x=1
+ctm deploy ai:jobtype  $CTM_SERVER_NAME $AG_NODE_ID KUBERNETES | grep "successful" > res.txt
+
+while [ ! -s res.txt ]
+do
+   echo "try $x times"
+   ctm deploy ai:jobtype  $CTM_SERVER_NAME $AG_NODE_ID KUBERNETES | grep "successful" > res.txt
+	x=$(( $x + 1 ))
+   sleep 20
+done
+
+echo 'deploying agent to KUBERNETES ai job type successed'
+rm res.txt
+
+# running in agent container and keeping it alive
 echo 'running in agent container and keeping it alive'
 ./ctmhost_keepalive.sh
