@@ -2,28 +2,33 @@
 cd "$(dirname "$0")"
 echo "Configures Agent container"
 
-echo "Install K8s certificates for AI server"
-export CONTROLM=/home/controlm/ctm
-PEM_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-KEYSTORE=$CONTROLM/cm/AI/data/security/apcerts
-KSPASS=appass
+# echo "Install K8s certificates for AI server"
+export CONTROLM=$HOMEDIR/ctm
+# PEM_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+# KEYSTORE=$CONTROLM/cm/AI/data/security/apcerts
+# KSPASS=appass
 
-NUM_CERTS=$(grep -c 'END CERTIFICATE' $PEM_FILE)
+# NUM_CERTS=$(grep -c 'END CERTIFICATE' $PEM_FILE)
 
-for N in $(seq 0 $((NUM_CERTS - 1))); do
-  awk "n==$N { print }; /END CERTIFICATE/ { n++ }" $PEM_FILE |
-    keytool -noprompt -import -trustcacerts -alias "kube-pod-ca-$N" -keystore "$KEYSTORE" -storepass $KSPASS
-done
+# for N in $(seq 0 $((NUM_CERTS - 1))); do
+#   awk "n==$N { print }; /END CERTIFICATE/ { n++ }" $PEM_FILE |
+#     keytool -noprompt -import -trustcacerts -alias "kube-pod-ca-$N" -keystore "$KEYSTORE" -storepass $KSPASS
+# done
 
 echo "Parameters: $argv"
-AG_NODE_ID=$(hostname)
-PERSISTENT_VOL=$1/$AG_NODE_ID
-AAPI_END_POINT=$2
-AAPI_TOKEN=$3
-CTM_SERVER_NAME=$4
-AGENT_HOSTGROUP_NAME=$5
+AG_NODE_ID=$HOSTNAME
+PERSISTENT_VOL=$PERSISTENT_VOL/$AG_NODE_ID
+AAPI_END_POINT=$AAPI_END_POINT
+AAPI_TOKEN=$AAPI_TOKEN
+CTM_SERVER_NAME=$CTM_SERVER_NAME
+AGENT_HOSTGROUP_NAME=$AGENT_HOSTGROUP_NAME
+AGENT_TAG=$AGENT_TAG
+AGENT_PORT=""
+SERVER_HOSTNAME=$SERVER_HOSTNAME
+PERM_HOSTS=$SERVER_HOSTNAME
 FOLDERS_EXISTS=false
 AGENT_REGISTERED=false
+ENVNAME=en1
 
 # create if needed, and map agent persistent data folders
 echo 'Mapping persistent volume'
@@ -69,8 +74,8 @@ ln -s "$PERSISTENT_VOL"/status $CONTROLM/status
 ln -s "$PERSISTENT_VOL"/cm $CONTROLM/cm
 
 echo "Using new AAPI configuration, not the default build time configuration"
-ctm env add ctm_env "$AAPI_END_POINT" "$AAPI_TOKEN"
-ctm env set ctm_env
+ctm env add $ENVNAME "$AAPI_END_POINT" "$AAPI_TOKEN"
+ctm env set $ENVNAME
 
 echo "Check if Agent exists in the Control-M Server"
 if $FOLDERS_EXISTS; then
@@ -86,7 +91,10 @@ if $FOLDERS_EXISTS && $AGENT_REGISTERED; then
   start-ag -u controlm -p ALL
 else
   echo 'Configuring and registering the agent'
-  ctm provision agent::setup "$CTM_SERVER_NAME" "$AG_NODE_ID" 7006 -f agent_configuration.json
+  jq -n --argjson connectionInitiator '"AgentToServer"' --argjson serverHostName '"'"$SERVER_HOSTNAME"'"' --argjson serverPort '7005' --argjson tag '"'"$AGENT_TAG"'"' \
+    '{connectionInitiator: $connectionInitiator, serverHostName: $serverHostName, serverPort: $serverPort, tag: $tag} | with_entries(select(.value != null and .value != ""))' > agent_configuration.json
+  cat agent_configuration.json
+  ctm provision agent::setup $CTM_SERVER_NAME $AG_NODE_ID $AGENT_PORT -f agent_configuration.json
 fi
 
 echo 'Checking Agent communication with Control-M Server'
@@ -94,7 +102,9 @@ ag_ping
 ag_diag_comm
 
 echo 'Adding the Agent to Host Group'
-ctm config server:hostgroup:agent::add "$CTM_SERVER_NAME" "$AGENT_HOSTGROUP_NAME" "$AG_NODE_ID"
+jq -n --argjson tag '"'"$AGENT_TAG"'"' '{tag: $tag} | with_entries(select(.value != null and .value != ""))' > agent_hostgroup.json
+cat agent_hostgroup.json
+ctm config server:hostgroup:agent::add $CTM_SERVER_NAME $AGENT_HOSTGROUP_NAME $AG_NODE_ID -f agent_hostgroup.json
 
 echo 'KUBERNETES AI Job Type is ready for use'
 bash ./ctmhost_keepalive.sh

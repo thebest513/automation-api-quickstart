@@ -13,8 +13,8 @@ spec:
 
     spec:
       containers:
-      - name: ubuntu
-        image: ubuntu:latest
+      - name: almalinux8
+        image: almalinux:8
         # Just spin & wait forever
         command: [ "/bin/bash", "-c", "--" ]
         args: [ "echo START-`date`; sleep 21; echo END-`date`" ]

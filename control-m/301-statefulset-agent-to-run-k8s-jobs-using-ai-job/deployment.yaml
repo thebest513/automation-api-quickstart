@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    type: deploy-ctmag921
+  name: deploy-ctmag921
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      type: deploy-ctmag921
+  template:
+    metadata:
+      labels:
+        type: deploy-ctmag921
+    spec:
+      containers:
+      - env:
+        - name: AAPI_END_POINT
+          value: https://twcc:8443/automation-api
+        - name: AAPI_TOKEN
+          valueFrom:
+             secretKeyRef:
+                name: credentials
+                key: AAPI_TOKEN
+        - name: SERVER_HOSTNAME
+          value: ctm921new2019en
+        - name: CTM_SERVER_NAME
+          value: CTM
+        - name: AGENT_HOSTGROUP_NAME
+          value: kubeai
+        - name: AGENT_TAG
+          value: kubeai
+        image: ctmag:921ai
+        imagePullPolicy: IfNotPresent
+        name: ctmagent-container
+        # volumeMounts:
+        # - mountPath: /home/controlm/yaml
+        #   name: example-volume
+        #   readOnly: true
+        lifecycle:
+          preStop:
+            exec:
+              command: ["./decommission_controlm.sh"]
+      # volumes:
+      # - name: example-volume
+      #   # mount /data/foo, but only if that directory already exists
+      #   hostPath:
+      #     path: /home/centos/docker_build/kubetwcc # directory location on host
+      #     type: Directory # this field is optional
+      #This is for hostname resolution purpose, if DNS configured not required this specifiction
+      hostAliases:
+      - hostnames:
+        - twcc
+        ip: "192.168.211.146" 
+      - hostnames:
+        - ctm921new2019en
+        ip: "192.168.211.146"
+      - hostnames:
+        - twcc2
+        ip: "192.168.211.137"  
+      - hostnames:
+        - ctm920-921-2019en
+        ip: "192.168.211.137"  
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 30
