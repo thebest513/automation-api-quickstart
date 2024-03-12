@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    type: deploy-ctmag-bmctwcc
+  name: deploy-agent-bmctwcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      type: deploy-ctmag-bmctwcc
+  template:
+    metadata:
+      labels:
+        type: deploy-ctmag-bmctwcc
+    spec:
+      containers:
+      - env:
+        - name: AAPI_ENDPOINT
+          value: https://twcc:8443/automation-api
+        - name: AGENT_PORT
+          value: "7006"
+        - name: SERVER_HOST
+          value: ctm921new2019en
+        - name: SERVER_PORT
+          value: "7005"
+        - name: SERVER_HOSTGROUP_NAME
+          value: kubeai
+        - name: AGENT_TOKEN_TAG
+          value: kubeai
+        - name: SERVER_NAME
+          value: "CTM"
+        - name: PERSISTENT_VOL
+          value: ""
+        image: controlm/agent:9.21.200-k8s-openjdk
+        imagePullPolicy: IfNotPresent
+        name: ctmagent-container
+        volumeMounts:
+          - name: apitoken
+            readOnly: true
+            mountPath: "/etc/secrets"
+      #This is for hostname resolution purpose, if DNS configured not required this specifiction
+      hostAliases:
+      - ip: "192.168.211.146"
+        hostnames:
+        - twcc
+        - ctm921new2019en
+      - ip: "192.168.211.137"
+        hostnames:
+        - twcc2
+        - ctm920-921-2019
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: apitoken
+          secret:
+            secretName: twcc
+            optional: false
