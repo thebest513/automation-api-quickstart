@@ -1,0 +1,158 @@
+---
+# Source: controlm-agent/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "ctmag921205-sa"
+  labels:
+    type: "ctmag921205-app"
+---
+# Source: controlm-agent/templates/pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "ctmag921205-pvc"
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Source: controlm-agent/templates/serviceaccount.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: "ctmag921205-role"
+  labels:
+    type: "ctmag921205-app"
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "pods", "pods/log" ]
+    verbs: [ "get", "list" ]
+  - apiGroups: [ "batch" ]
+    resources: [ "jobs", "jobs/status" ]
+    verbs: [ "get", "list", "create", "delete" ]
+---
+# Source: controlm-agent/templates/serviceaccount.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "ctmag921205-role-binding"
+  labels:
+    type: "ctmag921205-app"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "ctmag921205-role"
+subjects:
+  - kind: ServiceAccount
+    name: "ctmag921205-sa"
+---
+# Source: controlm-agent/templates/stateful.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "ctmag921205-sts"
+  labels:
+    type: "ctmag921205-app"
+spec:
+  replicas: 2 # number of running agents
+  selector:
+    matchLabels:
+      type: "ctmag921205-app"
+  serviceName: "ctmag921205-service"
+  template:
+    metadata:
+      labels:
+        type: "ctmag921205-app"
+    spec:
+      containers:
+        - name: "ctmag921205-container"
+          image: controlm/agent:9.21.205-k8s-openjdk
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            allowPrivilegeEscalation: false
+          env:
+            - name: AAPI_ENDPOINT
+              value: "https://ctm920-921-2019:8443/automation-api"
+            - name: AAPI_USER
+              value: 
+            - name: AGENT_PORT
+              value: "7006"
+            - name: AGENT_TOKEN_TAG
+              value: "kube"
+            - name: AGENT_NFS_MODE
+              value: "true"
+            - name: SERVER_HOST
+              value: "ctm920-921-2019"
+            - name: SERVER_PORT
+              value: "7005"
+            - name: SERVER_HOSTGROUP_NAME
+              value: "k8s_group"
+            - name: SERVER_NAME
+              value: "CTM"
+          ports:
+            - containerPort: 7006
+          resources:
+            requests:
+              memory: 2Gi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - source /home/controlm/.bash_profile && shagent
+            initialDelaySeconds: 30
+            failureThreshold: 6
+            periodSeconds: 10
+          startupProbe:
+            exec:
+              command:
+                - cat
+                - /tmp/healthy
+            initialDelaySeconds: 30
+            failureThreshold: 30
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - source ~/.bash_profile && shut-ag -u $USER -p AGENT
+          volumeMounts:
+            - name: "ctmag921205-pv-data"
+              mountPath: "/home/controlm/persistent_folder"
+            - name: "ctmag921205-secret-data"
+              readOnly: true
+              mountPath: "/etc/secrets"
+      hostAliases:
+        - hostnames:
+            - "ctm920-921-2019"
+          ip: "192.168.211.137"
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      os:
+        name: linux
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        fsGroup: 0
+        runAsGroup: 0
+        runAsUser: 1000
+      serviceAccountName: ctmag921205-sa
+      volumes:
+        - name: "ctmag921205-pv-data"
+          persistentVolumeClaim:
+            claimName: "ctmag921205-pvc"
+        - name: "ctmag921205-secret-data"
+          secret:
+            secretName: twcc2
+            optional: false
