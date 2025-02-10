@@ -1,14 +1,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: echo_job
+  name: echojob
 spec:
   template:
     metadata:
-        name: echo_job
+        name: echojob
         labels: {
            app: controlm,
-           controlm-order-id-internal-label : echo_job
+           controlm-order-id-internal-label : echojob
         }     
 
     spec:
