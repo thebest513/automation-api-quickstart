@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job.20.sec
+spec:
+  template:
+    metadata:
+        name: job.20.sec
+        labels: {
+           app: controlm,
+           controlm-order-id-internal-label : controlm.00001.1
+        }     
+
+    spec:
+      containers:
+      - name: almalinux8
+        image: almalinux:8
+        # Just spin & wait forever
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "echo", "dummy run success!!!!!!! {{job_yaml_file_params:masterid}}" ]
+      restartPolicy: Never
+      
